@@ -79,7 +79,9 @@ length(common_ids)
 set.seed(102926)
 partitions <- claims_paragraphs %>%
   select(.id, bclass) %>%
-  initial_split(prop = 0.8)
+  initial_split(prop = 0.8,
+                strata = bclass
+                )
 
 
 ## NLP
