@@ -1,6 +1,6 @@
 ---
 title: "Summary of exploratory tasks"
-author: 'YOUR NAMES HERE'
+author: 'Henry Ding, Karla Hernandez, Pranavi Gandikota, Runxin Shen, Stacy Callahan'
 date: today
 ---
 
@@ -14,12 +14,10 @@ Do bigrams capture additional information relevant to the classification of inte
 
 ### Neural net
 
-Summarize the neural network model you trained by desribing:
+**Architecture:** The neural network uses a text vectorization layer to convert webpage text into TF-IDF features. The model then applies a dropout layer with a rate of 0.2, followed by a dense hidden layer containing 50 units. A second dropout layer with a rate of 0.2 is applied before the final dense output layer with one unit and a sigmoid activation function. The sigmoid activation produces a probability for binary classification.
 
--   architecture
+**Optimization and Loss:** The model uses the Adam optimizer to update its weights during training and binary cross-entropy as its loss function. Binary accuracy is used as the evaluation metric during training.
 
--   optimization and loss
+**Training Epochs:** The model was trained for 5 epochs with a batch size of 32.
 
--   training epochs
-
--   predictive accuracy
+**Predictive Accuracy:** The model achieved a validation accuracy of **80.19%** (0.8018648), correctly classifying approximately 80% of webpages in the validation dataset.
