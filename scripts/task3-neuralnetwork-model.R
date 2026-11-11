@@ -20,7 +20,7 @@ load("data/claims-clean-example.RData")
 
 
 # STEP 2: SPLIT THE DATA
-set.seed(102928)
+set.seed(198)
 
 partitions <- initial_split(
   claims_clean,
@@ -41,7 +41,6 @@ valid_labels <- as.numeric(valid_data$bclass) - 1
 
 
 # STEP 3: CREATE THE TEXT PREPROCESSING LAYER
-set.seed(102928)
 preprocess_layer <- layer_text_vectorization(
   standardize = NULL,
   split = "whitespace",
@@ -61,7 +60,6 @@ adapt(preprocess_layer, train_text)
 
 # STEP 4: BUILD THE MODEL
 input <- layer_input(shape = c(1), dtype = "string")
-set.seed(102928)
 
 output <- input |>
   preprocess_layer() |>
@@ -80,7 +78,6 @@ summary(model)
 
 
 # STEP 5: COMPILE
-set.seed(102928)
 compile(
   model,
   loss = "binary_crossentropy",
@@ -90,7 +87,6 @@ compile(
 
 
 # STEP 6: TRAIN
-set.seed(102928)
 history <- fit(
   model,
   x = train_text,
@@ -102,7 +98,6 @@ history <- fit(
 
 
 # STEP 7: EVALUATE
-set.seed(102928)
 pred_probs <- predict(model, valid_text)
 
 pred_labels <- ifelse(
