@@ -1,6 +1,6 @@
 ---
 title: "Predictive modeling of claims status"
-author: 'YOUR NAMES HERE'
+author: 'Henry Ding, Karla Hernandez, Pranavi Gandikota, Runxin Shen, Stacy Callahan'
 date: today
 ---
 
@@ -20,6 +20,9 @@ In one paragraph lay out your preprocessing pipeline. No need to provide exact s
 
 -   how cleaned text was represented quantitatively
 
+First, we extracted the text from the HTML files, including both the paragraphs and headers (h1–h6). We then cleaned the text by removing URLs, emails, punctuation, numbers and special characters. Additionally, we converted the text to lowercase, removed extra spaces and stop words, and used lemmatization to reduce words to their base forms. Once the text was cleaned, we used term frequency-inverse document frequency (TF-IDF) to turn the words into numerical values. Finally, we used principal component analysis (PCA) to reduce the number of dimensions, allowing us to use the data to train our classification models.
+
+
 ### Methods
 
 Describe your final predictive models. Include one paragraph with details on the binary classification approach, and one on the multiclass approach. Include for each:
@@ -29,6 +32,7 @@ Describe your final predictive models. Include one paragraph with details on the
 -   model specification and hyperparameter selection
 
 -   training method
+
 
 ### Results
 
