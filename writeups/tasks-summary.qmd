@@ -1,12 +1,13 @@
 ---
-title: "Summary of exploratory tasks"
+title: "Deliverable 1: Summary of exploratory tasks"
 author: 'Henry Ding, Karla Hernandez, Pranavi Gandikota, Runxin Shen, Stacy Callahan'
 date: today
 ---
 
 ### HTML scraping
 
-Does including header content improve predictions? Answer the question and provide quantitative evidence supporting your answer.
+In take one, we compared logistic principal component regression (PCR) models of those with just paragraphs and those with paragraphs and headers (h1-h6). The model that used only the paragraphs had an accuracy of 78.1%, meanwhile the model that. included headers had an accuracy of 78.3%. Hence, it specifically resulted in a 0.233 percentage points improvement demonstrating that the addition of headers provided a small predictive benefit in accuracy. 
+
 
 ### Bigrams
 
