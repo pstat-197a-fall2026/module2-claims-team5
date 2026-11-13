@@ -2,11 +2,26 @@
 title: "Deliverable 1: Summary of exploratory tasks"
 author: 'Henry Ding, Karla Hernandez, Pranavi Gandikota, Runxin Shen, Stacy Callahan'
 date: today
+format:
+  pdf:
+    documentclass: article
+    fontsize: 11pt
+    geometry:
+      - margin=0.8in
+    include-in-header:
+      text: |
+        \usepackage{titling}
+        \pretitle{\begin{center}\large\bfseries}
+        \posttitle{\end{center}}
+        \preauthor{\begin{center}\small}
+        \postauthor{\end{center}}
+        \predate{\begin{center}\small}
+        \postdate{\end{center}\vspace{-1em}}
 ---
 
 ### HTML scraping
 
-In take one, we compared logistic principal component regression (PCR) models of those with just paragraphs and those with paragraphs and headers (h1-h6). The model that used only the paragraphs had an accuracy of 78.1%, meanwhile the model that. included headers had an accuracy of 78.3%. Hence, it specifically resulted in a 0.233 percentage points improvement demonstrating that the addition of headers provided a small predictive benefit in accuracy. 
+In task one, we compared logistic principal component regression (PCR) models using just paragraphs and those using both paragraphs and headers (h1–h6). The purpose was to see whether including headers would improve the accuracy of binary class predictions, as headers may contain additional information that is not included in the paragraphs. Both models were tested on the same webpages to make sure the results were comparable. The model that used only paragraphs had an accuracy of 78.1%, meanwhile the model that included headers had an accuracy of 78.3%. This resulted in a 0.233 percentage point improvement, demonstrating that the addition of headers provided a small predictive benefit. However, the difference was minimal, suggesting that the most useful information was in the  paragraphs alone.
 
 
 ### Bigrams
