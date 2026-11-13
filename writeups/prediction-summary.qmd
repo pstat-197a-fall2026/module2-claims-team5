@@ -8,7 +8,13 @@ date: today
 
 Provide a 3-5 sentence summary of your work on the primary task. Indicate what input data was used, what method was used for binary class predictions, what method was used for multiclass predictions, and what estimated accuracies were achieved.
 
-> *Header and paragraph content was scraped from the raw webpages and processed into term frequencies of word tokens. For binary classification, a two-layer neural network yielded an estimated 81.4% accuracy; for multiclass classification, a support vector machine gave 78% accuracy.*
+**Answer**
+
+We developed binary and multiclass models to predict claim status from webpage text. 
+
+For binary classification, an elastic net logistic regression model using unigram TF IDF features achieved an estimated validation accuracy of 80.2%. 
+
+For multiclass classification, [MULTICLASS MODEL] achieved an estimated accuracy of [MULTICLASS ACCURACY]. The fitted models were used to generate binary and multiclass predictions for the 929 unlabeled test webpages.
 
 ### Preprocessing
 
@@ -20,7 +26,11 @@ In one paragraph lay out your preprocessing pipeline. No need to provide exact s
 
 -   how cleaned text was represented quantitatively
 
-First, we extracted the text from the HTML files, including both the paragraphs and headers (h1–h6). We then cleaned the text by removing URLs, emails, punctuation, numbers and special characters. Additionally, we converted the text to lowercase, removed extra spaces and stop words, and used lemmatization to reduce words to their base forms. Once the text was cleaned, we used term frequency-inverse document frequency (TF-IDF) to turn the words into numerical values. Finally, we used principal component analysis (PCA) to reduce the number of dimensions, allowing us to use the data to train our classification models.
+**Answer**
+
+For binary classification, we extracted text from webpage titles, headers, and paragraphs. URLs, email addresses, punctuation, nonalphabetic tokens, short words, and common stop words were removed, and the remaining text was converted to lowercase. Terms appearing in fewer than five labeled webpages were excluded, and the remaining unigram tokens were represented using TF IDF weights learned from the training data. 
+
+For multiclass classification, [DESCRIBE MULTICLASS TEXT EXTRACTION, CLEANING, AND FEATURE REPRESENTATION].
 
 
 ### Methods
@@ -33,9 +43,38 @@ Describe your final predictive models. Include one paragraph with details on the
 
 -   training method
 
+**Answer**
+
+For binary classification, we fitted an elastic net logistic regression model using unigram TF IDF features. The labeled webpages were divided into stratified training and validation sets. Five fold cross validation within the training data was used to select the elastic net mixing parameter and regularization strength. The selected model used an alpha value of 0.5 and was refitted using all 2,165 labeled webpages before generating the final test predictions. (OpenAI Codex was used as a coding assistant to help explain, debug, organize, and test the R code; all modeling decisions, validation results, and final outputs were reviewed by the project team.)
+
+For multiclass classification, [DESCRIBE THE MULTICLASS MODEL]. [EXPLAIN HOW THE MODEL SPECIFICATION AND HYPERPARAMETERS WERE SELECTED]. [EXPLAIN HOW THE FINAL MODEL WAS TRAINED].
+
+
 
 ### Results
 
 Indicate the predictive accuracy of the binary classifications and the multiclass classifications. Provide a table for each, and report sensitivity, specificity, and accuracy.[^1]
+
+**Answer**
+
+The binary classifier achieved 80.2% validation accuracy. It correctly identified 76.7% of webpages containing relevant claim content and 84.1% of webpages without relevant claim content. Its ROC AUC was 86.3%.
+
+| Binary model metric | Estimate |
+|:--|--:|
+| Accuracy | 80.2% |
+| Sensitivity | 76.7% |
+| Specificity | 84.1% |
+| ROC AUC | 86.3% |
+
+
+The multiclass model achieved [MULTICLASS ACCURACY]. [ADD A SHORT COMPARISON OF PERFORMANCE ACROSS THE FIVE CLASSES.]
+
+| Multiclass model metric | Estimate |
+|:--|--:|
+| Accuracy | [VALUE] |
+| Sensitivity | [VALUE AND AVERAGING METHOD] |
+| Specificity | [VALUE AND AVERAGING METHOD] |
+
+[^1]: Multiclass sensitivity and specificity should report the averaging method used.
 
 [^1]: Read [this article](https://yardstick.tidymodels.org/articles/multiclass.html) on multiclass averaging.

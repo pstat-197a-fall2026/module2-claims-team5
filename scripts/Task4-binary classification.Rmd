@@ -1,0 +1,945 @@
+---
+title: "Task4 - Binary Classification"
+author: "Runxin Shen"
+date: "2026-11-10"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      warning = FALSE)
+```
+
+# Step 1 load and split the data
+```{r}
+
+library(tidyverse)
+library(tidymodels)
+library(here)
+
+# Load labeled training data
+load(here("data", "claims-raw.RData"))
+
+# Load unlabeled final test data
+load(here("data", "claims-test.RData"))
+
+# Check the number of observations
+stopifnot(nrow(claims_raw) == 2165)
+stopifnot(nrow(claims_test) == 929)
+
+# Check for duplicated IDs
+stopifnot(!anyDuplicated(claims_raw$.id))
+stopifnot(!anyDuplicated(claims_test$.id))
+
+# Check for missing HTML
+stopifnot(!anyNA(claims_raw$text_tmp))
+stopifnot(!anyNA(claims_test$text_tmp))
+
+# Inspect binary class counts
+class_counts <- table(claims_raw$bclass)
+print(class_counts)
+
+# Inspect binary class proportions
+class_proportions <- prop.table(class_counts)
+print(class_proportions)
+
+# Create a stratified training and validation split
+set.seed(102926)
+
+data_split <- initial_split(
+  claims_raw,
+  prop = 0.8,
+  strata = bclass
+)
+
+train_raw <- training(data_split)
+valid_raw <- testing(data_split)
+
+# Check the number of pages in each set
+split_summary <- tibble(
+  dataset = c("Training", "Validation"),
+  n_pages = c(nrow(train_raw), nrow(valid_raw))
+)
+
+print(split_summary)
+
+# Check class proportions in the training set
+train_class_proportions <- prop.table(
+  table(train_raw$bclass)
+)
+
+print(train_class_proportions)
+
+# Check class proportions in the validation set
+valid_class_proportions <- prop.table(
+  table(valid_raw$bclass)
+)
+
+print(valid_class_proportions)
+
+# Confirm that the training and validation sets do not overlap
+shared_ids <- intersect(
+  train_raw$.id,
+  valid_raw$.id
+)
+
+stopifnot(length(shared_ids) == 0)
+
+# Confirm that all labeled pages are retained
+all_split_ids <- unique(
+  c(train_raw$.id, valid_raw$.id)
+)
+
+stopifnot(
+  length(all_split_ids) == nrow(claims_raw)
+)
+```
+
+# Step 2 extract and clean webpage text
+```{r}
+library(rvest)
+
+# Extract text from HTML
+extract_page_text <- function(html) {
+  tryCatch(
+    {
+      document <- read_html(html)
+
+      page_text <- document |>
+        html_elements(
+          "title, h1, h2, h3, h4, h5, h6, p"
+        ) |>
+        html_text2() |>
+        str_c(collapse = " ") |>
+        str_squish()
+
+      if (str_length(page_text) == 0) {
+        page_text <- document |>
+          html_text2() |>
+          str_squish()
+      }
+
+      page_text
+    },
+    error = function(e) {
+      ""
+    }
+  )
+}
+
+clean_page_text <- function(text) {
+  text |>
+    str_replace_all(
+      "https?://\\S+|www\\.\\S+",
+      " "
+    ) |>
+    str_replace_all(
+      "\\b[[:alnum:]._%+-]+@[[:alnum:].-]+\\.[[:alpha:]]{2,}\\b",
+      " "
+    ) |>
+    str_replace_all(
+      "([a-z])([A-Z])",
+      "\\1 \\2"
+    ) |>
+    str_to_lower() |>
+    str_replace_all(
+      "[^a-z0-9\\s]",
+      " "
+    ) |>
+    str_squish()
+}
+
+preprocess_pages <- function(data) {
+  data |>
+    mutate(
+      text_clean = map_chr(
+        text_tmp,
+        function(html) {
+          extracted_text <- extract_page_text(html)
+          clean_page_text(extracted_text)
+        }
+      )
+    )
+}
+
+# Apply text preprocessing to each dataset
+
+train_text <- preprocess_pages(train_raw)
+
+valid_text <- preprocess_pages(valid_raw)
+
+test_text <- preprocess_pages(claims_test)
+```
+
+```{r}
+# Check the number of pages
+
+nrow(train_text)
+nrow(valid_text)
+nrow(test_text)
+```
+
+```{r}
+# Confirm that no pages were removed
+
+stopifnot(nrow(train_text) == nrow(train_raw))
+
+stopifnot(nrow(valid_text) == nrow(valid_raw))
+
+stopifnot(nrow(test_text) == nrow(claims_test))
+```
+
+```{r}
+# Preview part of one cleaned webpage
+
+str_sub(
+  train_text$text_clean[1],
+  start = 1,
+  end = 500
+)
+```
+
+# Step 3A Tokenization
+```{r}
+
+library(tidytext)
+
+tokenize_pages <- function(data) {
+  data |>
+    select(.id, text_clean) |>
+    unnest_tokens(
+      output = term,
+      input = text_clean,
+      token = "words"
+    ) |>
+    filter(
+      str_detect(term, "^[a-z]+$"),
+      str_length(term) > 2) |>
+    anti_join(
+      stop_words,
+      by = c("term" = "word")
+    ) |>
+    count(
+      .id,
+      term,
+      name = "n"
+    )
+}
+
+# Tokenize each dataset
+train_counts <- tokenize_pages(train_text)
+valid_counts <- tokenize_pages(valid_text)
+test_counts <- tokenize_pages(test_text)
+
+# Preview training word counts
+train_counts |>
+  slice_head(n = 10)
+
+# Check the number of unique training words
+n_distinct(train_counts$term)
+```
+
+# Step 3B create the training vocabulary
+```{r}
+
+n_train_pages <- nrow(train_text)
+
+vocabulary <- train_counts |>
+  count(
+    term,
+    name = "document_frequency"
+  ) |>
+  filter(
+    document_frequency >= 5
+  ) |>
+  mutate(
+    idf = log(
+      n_train_pages / document_frequency
+    )
+  ) |>
+  arrange(term)
+
+# Check vocabulary size
+
+nrow(vocabulary)
+
+# Preview the vocabulary
+
+vocabulary |>
+  slice_head(n = 10)
+```
+
+# Step 3C create TF IDF matrices
+```{r}
+
+library(Matrix)
+
+build_tfidf_matrix <- function(
+  counts,
+  page_ids,
+  vocabulary
+) {
+  weighted_counts <- counts |>
+    group_by(.id) |>
+    mutate(
+      tf = n / sum(n)
+    ) |>
+    ungroup() |>
+    inner_join(
+      vocabulary |>
+        select(term, idf),
+      by = "term"
+    ) |>
+    mutate(
+      tf_idf = tf * idf
+    )
+
+  sparseMatrix(
+    i = match(
+      weighted_counts$.id,
+      page_ids
+    ),
+    j = match(
+      weighted_counts$term,
+      vocabulary$term
+    ),
+    x = weighted_counts$tf_idf,
+    dims = c(
+      length(page_ids),
+      nrow(vocabulary)
+    ),
+    dimnames = list(
+      page_ids,
+      vocabulary$term
+    )
+  )
+}
+
+# Create the training matrix
+
+x_train <- build_tfidf_matrix(
+  counts = train_counts,
+  page_ids = train_text$.id,
+  vocabulary = vocabulary
+)
+
+# Create the validation matrix
+
+x_valid <- build_tfidf_matrix(
+  counts = valid_counts,
+  page_ids = valid_text$.id,
+  vocabulary = vocabulary
+)
+
+# Check matrix dimensions
+
+dim(x_train)
+dim(x_valid)
+
+# Check row alignment
+
+stopifnot(
+  identical(
+    rownames(x_train),
+    train_text$.id
+  )
+)
+
+stopifnot(
+  identical(
+    rownames(x_valid),
+    valid_text$.id
+  )
+)
+
+# Check column alignment
+
+stopifnot(
+  identical(
+    colnames(x_train),
+    colnames(x_valid)
+  )
+)
+
+# Count pages with no retained terms
+
+sum(Matrix::rowSums(x_train) == 0)
+
+sum(Matrix::rowSums(x_valid) == 0)
+```
+```{r}
+# Create outcome vectors
+
+y_train <- factor(
+  train_text$bclass
+)
+
+y_valid <- factor(
+  valid_text$bclass,
+  levels = levels(y_train)
+)
+
+# Check outcome levels
+
+levels(y_train)
+
+# Check outcome lengths
+
+length(y_train)
+length(y_valid)
+
+# Confirm alignment
+
+stopifnot(length(y_train) == nrow(x_train))
+stopifnot(length(y_valid) == nrow(x_valid))
+```
+
+# Step 4 train and tune the binary model
+```{r}
+
+library(glmnet)
+
+# Create stratified cross validation folds
+
+set.seed(102926)
+
+n_folds <- 5
+
+fold_id <- integer(
+  length(y_train)
+)
+
+for (class_label in levels(y_train)) {
+  class_rows <- which(
+    y_train == class_label
+  )
+
+  fold_id[class_rows] <- sample(
+    rep(
+      1:n_folds,
+      length.out = length(class_rows)
+    )
+  )
+}
+
+# Check fold class counts
+
+table(
+  fold_id,
+  y_train
+)
+
+# Define alpha values
+
+alpha_values <- c(
+  0,
+  0.25,
+  0.5,
+  0.75,
+  1
+)
+
+# Fit one cross validation model for each alpha
+
+cv_models <- lapply(
+  alpha_values,
+  function(alpha_value) {
+    cv.glmnet(
+      x = x_train,
+      y = y_train,
+      family = "binomial",
+      alpha = alpha_value,
+      foldid = fold_id,
+      type.measure = "class"
+    )
+  }
+)
+
+# Summarize cross validation results
+
+cv_summary <- map2_dfr(
+  alpha_values,
+  cv_models,
+  function(alpha_value, model) {
+    best_position <- which.min(
+      model$cvm
+    )
+
+    tibble(
+      alpha = alpha_value,
+      lambda = model$lambda[best_position],
+      cv_error = model$cvm[best_position],
+      cv_accuracy = 1 - model$cvm[best_position]
+    )
+  }
+)
+
+print(cv_summary)
+
+# Select the best alpha
+
+best_model_index <- which.max(
+  cv_summary$cv_accuracy
+)
+
+best_alpha <- cv_summary$alpha[
+  best_model_index
+]
+
+best_lambda <- cv_summary$lambda[
+  best_model_index
+]
+
+best_cv_model <- cv_models[[
+  best_model_index
+]]
+
+# Print selected parameters
+
+best_alpha
+best_lambda
+```
+
+# Step 5 evaluate the validation data
+```{r}
+
+# Confirm class order
+
+expected_levels <- c(
+  "N/A: No relevant content.",
+  "Relevant claim content"
+)
+
+stopifnot(
+  identical(
+    levels(y_train),
+    expected_levels
+  )
+)
+
+negative_class <- levels(y_train)[1]
+positive_class <- levels(y_train)[2]
+
+# Predict validation probabilities
+
+valid_probabilities <- predict(
+  best_cv_model,
+  newx = x_valid,
+  s = best_lambda,
+  type = "response"
+) |>
+  as.numeric()
+
+# Convert probabilities to class predictions
+
+valid_predictions <- if_else(
+  valid_probabilities >= 0.5,
+  positive_class,
+  negative_class
+)
+
+valid_predictions <- factor(
+  valid_predictions,
+  levels = levels(y_train)
+)
+
+# Store validation results
+
+validation_results <- tibble(
+  .id = valid_text$.id,
+  truth = y_valid,
+  estimate = valid_predictions,
+  probability = valid_probabilities
+)
+
+# Check prediction output
+
+stopifnot(
+  nrow(validation_results) ==
+    nrow(valid_text)
+)
+
+stopifnot(
+  !anyNA(validation_results$estimate)
+)
+
+stopifnot(
+  !anyNA(validation_results$probability)
+)
+
+# Calculate validation metrics
+
+validation_metrics <- bind_rows(
+  accuracy(
+    validation_results,
+    truth = truth,
+    estimate = estimate
+  ),
+  sens(
+    validation_results,
+    truth = truth,
+    estimate = estimate,
+    event_level = "second"
+  ),
+  spec(
+    validation_results,
+    truth = truth,
+    estimate = estimate,
+    event_level = "second"
+  ),
+  roc_auc(
+    validation_results,
+    truth = truth,
+    probability,
+    event_level = "second"
+  )
+)
+
+print(validation_metrics)
+
+# Create a confusion matrix
+
+validation_confusion <- conf_mat(
+  validation_results,
+  truth = truth,
+  estimate = estimate
+)
+
+validation_confusion
+```
+
+# Step 6A create the final training data
+```{r}
+
+# Process all labeled pages
+
+full_text <- preprocess_pages(
+  claims_raw
+)
+
+# Tokenize all labeled pages
+
+full_counts <- tokenize_pages(
+  full_text
+)
+
+# Create the final vocabulary
+
+n_full_pages <- nrow(full_text)
+
+final_vocabulary <- full_counts |>
+  count(
+    term,
+    name = "document_frequency"
+  ) |>
+  filter(
+    document_frequency >= 5
+  ) |>
+  mutate(
+    idf = log(
+      n_full_pages / document_frequency
+    )
+  ) |>
+  arrange(term)
+
+# Check the final vocabulary size
+
+nrow(final_vocabulary)
+
+# Create the full training matrix
+
+x_full <- build_tfidf_matrix(
+  counts = full_counts,
+  page_ids = full_text$.id,
+  vocabulary = final_vocabulary
+)
+
+# Create the final test matrix
+
+x_test <- build_tfidf_matrix(
+  counts = test_counts,
+  page_ids = test_text$.id,
+  vocabulary = final_vocabulary
+)
+
+# Create the full outcome vector
+
+y_full <- factor(
+  full_text$bclass,
+  levels = levels(y_train)
+)
+
+# Check matrix dimensions
+
+dim(x_full)
+dim(x_test)
+
+# Check outcome length
+
+length(y_full)
+
+# Check row alignment
+
+stopifnot(
+  identical(
+    rownames(x_full),
+    full_text$.id
+  )
+)
+
+stopifnot(
+  identical(
+    rownames(x_test),
+    test_text$.id
+  )
+)
+
+# Check column alignment
+
+stopifnot(
+  identical(
+    colnames(x_full),
+    colnames(x_test)
+  )
+)
+
+# Check outcome alignment
+
+stopifnot(
+  length(y_full) == nrow(x_full)
+)
+
+# Check the number of test pages
+
+stopifnot(
+  nrow(x_test) == 929
+)
+
+# Count pages with no retained terms
+
+sum(Matrix::rowSums(x_full) == 0)
+
+sum(Matrix::rowSums(x_test) == 0)
+```
+# Step 6B fit the final binary model
+```{r}
+
+# Check the selected alpha
+
+best_alpha
+
+stopifnot(
+  length(best_alpha) == 1,
+  !is.na(best_alpha)
+)
+
+# Create stratified cross validation folds
+
+set.seed(102926)
+
+final_n_folds <- 5
+
+final_fold_id <- integer(
+  length(y_full)
+)
+
+for (class_label in levels(y_full)) {
+  class_rows <- which(
+    y_full == class_label
+  )
+
+  final_fold_id[class_rows] <- sample(
+    rep(
+      1:final_n_folds,
+      length.out = length(class_rows)
+    )
+  )
+}
+
+# Check class counts in each fold
+
+table(
+  final_fold_id,
+  y_full
+)
+
+# Select the final lambda
+
+final_cv_model <- cv.glmnet(
+  x = x_full,
+  y = y_full,
+  family = "binomial",
+  alpha = best_alpha,
+  foldid = final_fold_id,
+  type.measure = "class"
+)
+
+final_lambda <- final_cv_model$lambda.min
+
+# Print final parameters
+
+best_alpha
+final_lambda
+```
+
+```{r}
+# Fit the final model using all labeled pages
+
+final_binary_model <- glmnet(
+  x = x_full,
+  y = y_full,
+  family = "binomial",
+  alpha = best_alpha,
+  lambda = final_lambda
+)
+
+# Check the final model
+
+final_binary_model
+
+# Count nonzero coefficients
+
+final_coefficients <- coef(
+  final_binary_model,
+  s = final_lambda
+)
+
+sum(final_coefficients != 0)
+```
+
+# Step 7 generate binary predictions
+```{r}
+
+# Predict probabilities for the final test data
+
+test_probabilities <- predict(
+  final_binary_model,
+  newx = x_test,
+  type = "response"
+) |>
+  as.numeric()
+
+# Check predicted probabilities
+
+stopifnot(
+  length(test_probabilities) == 929
+)
+
+stopifnot(
+  !anyNA(test_probabilities)
+)
+
+stopifnot(
+  all(
+    test_probabilities >= 0 &
+      test_probabilities <= 1
+  )
+)
+
+# Define class labels
+
+negative_class <- levels(y_full)[1]
+positive_class <- levels(y_full)[2]
+
+negative_class
+positive_class
+
+# Convert probabilities to class predictions
+
+test_predictions <- if_else(
+  test_probabilities >= 0.5,
+  positive_class,
+  negative_class
+)
+
+test_predictions <- factor(
+  test_predictions,
+  levels = levels(y_full)
+)
+
+# Create the binary prediction data frame
+
+binary_pred_df <- tibble(
+  .id = test_text$.id,
+  bclass.pred = test_predictions
+)
+
+# Check the binary predictions
+
+stopifnot(
+  nrow(binary_pred_df) == 929
+)
+
+stopifnot(
+  !anyDuplicated(binary_pred_df$.id)
+)
+
+stopifnot(
+  !anyNA(binary_pred_df$bclass.pred)
+)
+
+stopifnot(
+  identical(
+    binary_pred_df$.id,
+    claims_test$.id
+  )
+)
+
+# Preview predictions
+
+binary_pred_df |>
+  slice_head(n = 10)
+
+# Check predicted class counts
+
+table(
+  binary_pred_df$bclass.pred
+)
+```
+
+# Step 8A save the binary model and predictions
+```{r}
+
+# Create a deployable model bundle
+
+binary_model_bundle <- list(
+  model_type = "Elastic net logistic regression",
+  fit = final_binary_model,
+  vocabulary = final_vocabulary,
+  alpha = best_alpha,
+  lambda = final_lambda,
+  threshold = 0.5,
+  class_levels = levels(y_full),
+  minimum_document_frequency = 5,
+  preprocessing = list(
+    html_elements = "title, h1, h2, h3, h4, h5, h6, p",
+    minimum_term_length = 3,
+    alphabetic_tokens_only = TRUE,
+    remove_stop_words = TRUE,
+    feature_type = "Unigram TF IDF"
+  ),
+  validation_metrics = validation_metrics
+)
+
+# Save the model bundle
+
+saveRDS(
+  binary_model_bundle,
+  here(
+    "results",
+    "task4-binary-model.rds"
+  )
+)
+
+# Save the binary predictions
+
+save(
+  binary_pred_df,
+  file = here(
+    "results",
+    "task4-binary-predictions.RData"
+  )
+)
+```
+
