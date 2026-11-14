@@ -89,7 +89,7 @@ ul.task-list li input[type="checkbox"] {
 <p><strong>Answer</strong></p>
 <p>We developed binary and multiclass models to predict claim status from webpage text.</p>
 <p>For binary classification, an elastic net logistic regression model using unigram TF IDF features achieved an estimated validation accuracy of 80.2%.</p>
-<p>For multiclass classification, [MULTICLASS MODEL] achieved an estimated accuracy of [MULTICLASS ACCURACY]. The fitted models were used to generate binary and multiclass predictions for the 929 unlabeled test webpages.</p>
+<p>For multiclass classification, a logistic regression model using TF-IDF unigram and bigram features achieved a validation accuracy of 79.9%. The fitted models were used to generate binary and multiclass predictions for the 929 unlabeled test webpages.</p>
 </section>
 <section id="preprocessing" class="level3">
 <h3 class="anchored" data-anchor-id="preprocessing">Preprocessing</h3>
@@ -101,7 +101,7 @@ ul.task-list li input[type="checkbox"] {
 </ul>
 <p><strong>Answer</strong></p>
 <p>For binary classification, we extracted text from webpage titles, headers, and paragraphs. URLs, email addresses, punctuation, nonalphabetic tokens, short words, and common stop words were removed, and the remaining text was converted to lowercase. Terms appearing in fewer than five labeled webpages were excluded, and the remaining unigram tokens were represented using TF IDF weights learned from the training data.</p>
-<p>For multiclass classification, [DESCRIBE MULTICLASS TEXT EXTRACTION, CLEANING, AND FEATURE REPRESENTATION].</p>
+<p>For multiclass classification, paragraph and header text was lowercased, stripped of URLs, emails, digits, punctuation, and stop words, and represented as TF-IDF unigrams and bigrams.</p>
 </section>
 <section id="methods" class="level3">
 <h3 class="anchored" data-anchor-id="methods">Methods</h3>
@@ -113,7 +113,7 @@ ul.task-list li input[type="checkbox"] {
 </ul>
 <p><strong>Answer</strong></p>
 <p>For binary classification, we fitted an elastic net logistic regression model using unigram TF IDF features. The labeled webpages were divided into stratified training and validation sets. Five fold cross validation within the training data was used to select the elastic net mixing parameter and regularization strength. The selected model used an alpha value of 0.5 and was refitted using all 2,165 labeled webpages before generating the final test predictions. (OpenAI Codex was used as a coding assistant to help explain, debug, organize, and test the R code; all modeling decisions, validation results, and final outputs were reviewed by the project team.)</p>
-<p>For multiclass classification, [DESCRIBE THE MULTICLASS MODEL]. [EXPLAIN HOW THE MODEL SPECIFICATION AND HYPERPARAMETERS WERE SELECTED]. [EXPLAIN HOW THE FINAL MODEL WAS TRAINED].</p>
+<p>For multiclass classification, we fitted a multinomial logistic regression on the TF-IDF features. The labeled pages were split into stratified training (80%) and validation (20%) sets; five-fold cross-validation on the training set gave a mean ROC AUC of 0.94, and the validation set was used to estimate accuracy. The final model was refitted on all 2,165 labeled pages before predicting the 929 test pages.</p>
 </section>
 <section id="results" class="level3">
 <h3 class="anchored" data-anchor-id="results">Results</h3>
@@ -146,7 +146,7 @@ ul.task-list li input[type="checkbox"] {
 </tr>
 </tbody>
 </table>
-<p>The multiclass model achieved [MULTICLASS ACCURACY]. [ADD A SHORT COMPARISON OF PERFORMANCE ACROSS THE FIVE CLASSES.]</p>
+<p>The multiclass model achieved 79.9% validation accuracy. Macro-averaged sensitivity was 67.0%, while macro-averaged specificity was 93.3%. The high specificity indicates that the model generally avoids assigning pages to incorrect classes, although sensitivity was lower for some classes.</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -157,15 +157,15 @@ ul.task-list li input[type="checkbox"] {
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">Accuracy</td>
-<td style="text-align: right;">[VALUE]</td>
+<td style="text-align: right;">79.9%</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Sensitivity</td>
-<td style="text-align: right;">[VALUE AND AVERAGING METHOD]</td>
+<td style="text-align: left;">Macro-averaged sensitivity</td>
+<td style="text-align: right;">67.0%</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Specificity</td>
-<td style="text-align: right;">[VALUE AND AVERAGING METHOD]</td>
+<td style="text-align: left;">Macro-averaged specificity</td>
+<td style="text-align: right;">93.3%</td>
 </tr>
 </tbody>
 </table>

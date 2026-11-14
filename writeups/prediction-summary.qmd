@@ -14,7 +14,7 @@ We developed binary and multiclass models to predict claim status from webpage t
 
 For binary classification, an elastic net logistic regression model using unigram TF IDF features achieved an estimated validation accuracy of 80.2%. 
 
-For multiclass classification, [MULTICLASS MODEL] achieved an estimated accuracy of [MULTICLASS ACCURACY]. The fitted models were used to generate binary and multiclass predictions for the 929 unlabeled test webpages.
+For multiclass classification, a logistic regression model using TF-IDF unigram and bigram features achieved a validation accuracy of 79.9%. The fitted models were used to generate binary and multiclass predictions for the 929 unlabeled test webpages.
 
 ### Preprocessing
 
@@ -30,7 +30,7 @@ In one paragraph lay out your preprocessing pipeline. No need to provide exact s
 
 For binary classification, we extracted text from webpage titles, headers, and paragraphs. URLs, email addresses, punctuation, nonalphabetic tokens, short words, and common stop words were removed, and the remaining text was converted to lowercase. Terms appearing in fewer than five labeled webpages were excluded, and the remaining unigram tokens were represented using TF IDF weights learned from the training data. 
 
-For multiclass classification, [DESCRIBE MULTICLASS TEXT EXTRACTION, CLEANING, AND FEATURE REPRESENTATION].
+For multiclass classification, paragraph and header text was lowercased, stripped of URLs, emails, digits, punctuation, and stop words, and represented as TF-IDF unigrams and bigrams.
 
 
 ### Methods
@@ -47,8 +47,7 @@ Describe your final predictive models. Include one paragraph with details on the
 
 For binary classification, we fitted an elastic net logistic regression model using unigram TF IDF features. The labeled webpages were divided into stratified training and validation sets. Five fold cross validation within the training data was used to select the elastic net mixing parameter and regularization strength. The selected model used an alpha value of 0.5 and was refitted using all 2,165 labeled webpages before generating the final test predictions. (OpenAI Codex was used as a coding assistant to help explain, debug, organize, and test the R code; all modeling decisions, validation results, and final outputs were reviewed by the project team.)
 
-For multiclass classification, [DESCRIBE THE MULTICLASS MODEL]. [EXPLAIN HOW THE MODEL SPECIFICATION AND HYPERPARAMETERS WERE SELECTED]. [EXPLAIN HOW THE FINAL MODEL WAS TRAINED].
-
+For multiclass classification, we fitted a multinomial logistic regression on the TF-IDF features. The labeled pages were split into stratified training (80%) and validation (20%) sets; five-fold cross-validation on the training set gave a mean ROC AUC of 0.94, and the validation set was used to estimate accuracy. The final model was refitted on all 2,165 labeled pages before predicting the 929 test pages.
 
 
 ### Results
@@ -67,14 +66,12 @@ The binary classifier achieved 80.2% validation accuracy. It correctly identifie
 | ROC AUC | 86.3% |
 
 
-The multiclass model achieved [MULTICLASS ACCURACY]. [ADD A SHORT COMPARISON OF PERFORMANCE ACROSS THE FIVE CLASSES.]
+The multiclass model achieved 79.9% validation accuracy. Macro-averaged sensitivity was 67.0%, while macro-averaged specificity was 93.3%. The high specificity indicates that the model generally avoids assigning pages to incorrect classes, although sensitivity was lower for some classes.
 
 | Multiclass model metric | Estimate |
 |:--|--:|
-| Accuracy | [VALUE] |
-| Sensitivity | [VALUE AND AVERAGING METHOD] |
-| Specificity | [VALUE AND AVERAGING METHOD] |
-
-[^1]: Multiclass sensitivity and specificity should report the averaging method used.
+| Accuracy | 79.9% |
+| Macro-averaged sensitivity | 67.0% |
+| Macro-averaged specificity | 93.3% |
 
 [^1]: Read [this article](https://yardstick.tidymodels.org/articles/multiclass.html) on multiclass averaging.
